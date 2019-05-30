@@ -1,0 +1,9 @@
+To start, run one of the following:
+python -m SimpleHTTPServer 8000 &
+python -m http.server 8000 &
+(note: & runs process in background, type fg / bg to change)
+
+This also works:
+gem install adsf
+adsf
+(default runs on 3000)
