@@ -9,6 +9,7 @@
     </style>
 </head>
 <body>
+    <h1>Part 1:</h1>
     <ul class="items">
         <li>item</li>
         <li>item</li>
@@ -23,7 +24,42 @@
         <li>item</li>
         <li>item</li>
     </ul>
+    <h1>Part 2:</h1>
+    <ul class="items3">
+        <li>initial text</li>
+        <li>initial text</li>
+        <li>initial text</li>
+        <li>initial text</li>
+        <li>initial text</li>
+    </ul>
+    <ul class="items4">
+        <li>asdf</li>
+        <li>asdf</li>
+        <li>asdf</li>
+        <li>asdf</li>
+        <li>asdf</li>
+    </ul>
+    <ul class="items5">
+        items 5
+        <li>a</li>
+        <li>a</li>
+        <li>a</li>
+    </ul>
+    <ul class="items6">
+        items 6
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+    </ul>
     <script>
+        //part1
         d3.selectAll('li')
             .style('color','red')
             .html('add some content');
@@ -32,6 +68,57 @@
         d3.selectAll('.items2>li:nth-child(odd)')
             .style('color','green')
             .classed('big',true);
+        
+        //part2
+        let numArray = [12,20,33,40,55];
+        d3.selectAll('.items3 li')
+            .data(numArray)
+            .text(function(d){
+                return `this is item number ${d}`;
+            });
+
+        d3.selectAll('.items4 li')
+            .data(numArray)
+            .style('font-size', 
+                function(d) {
+                    return `${d}px`;
+            })
+        //mess with making more li's than the array and vise versa
+        //while taking or leaving li_selection.exit().remove()
+        var numArray2 = [16, 80, 20, 11,12,14];
+        var li_selection = d3.select('body').selectAll('.items5 li')
+                .data(numArray2)
+                .text(function(d) {
+                    return 'This is item5 and '+d;
+                });
+        li_selection.enter().append('li')
+                    .text(function(d) {
+                    return 'This is enter item5 and '+d;
+                });
+        li_selection.enter().append('li')
+        .text(function(d) {
+                    return 'This is enter again item5 and '+d;
+                })
+        .style('color','blue');
+
+        var numArray3 = [1,2,3,4,5];
+        var li_selection2 = d3.select('body').selectAll('.items6 li')
+                .data(numArray3)
+                .text(function(d) {
+                    return 'This is an item6 item'+d;
+                });
+        li_selection2.enter().append('li')
+                    .text(function(d) {
+                    return 'This is an item6 item'+d;
+                });
+        li_selection2.exit().style('color','green');
+
+        //removes nodes unmatched to data
+        //li_selection2.exit().remove();
+
+        //Question:
+        //Why does the enter li_selection appear after the binding for 
+        //the selection two?
     </script>
 </body>
 </html>
