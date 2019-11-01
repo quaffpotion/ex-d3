@@ -42,7 +42,12 @@
         .attr('width', width)
         .attr('height', height);
 
-      var context = canvas.node().getContext('2d'); // this will do the actual drawing
+      var hiddencanvas = d3
+        .select('#container') //At the start, there will be no canvas element however,
+        .append('canvas') // here one will be appended
+        .attr('width', width)
+        .attr('height', height)
+        .classed('hidden-canvas', true);
 
       // Technical detail, this essentially placeholder element will be the parent
       // of all our other elements.
@@ -61,7 +66,7 @@
       databind(d3.range(value)); // When this is just `data` we get black boxes only
       var t = d3.timer(function(elapsed) {
         console.log('Running draw function...');
-        draw();
+        draw(canvas);
         if (elapsed > 300) t.stop();
       }); // start a timer that runs the draw function for 300 ms (or anything slightly higher than the transition time for our custom elements)
       //seems to take at least two draws - if you set the timer to 1 ms then you only get 1 and there's nothing
@@ -87,7 +92,7 @@
             databind(d3.range(value)); // bind the data
             var t = d3.timer(function(elapsed) {
               console.log('Running draw function... due to user click');
-              draw();
+              draw(canvas);
               if (elapsed > 300) t.stop();
             }); // start a timer that runs the draw function for 300 ms (this needs to be higher than the transition in the databind function)
           }
@@ -145,7 +150,9 @@
           .remove();
       } // end databind
 
-      function draw() {
+      function draw(canvas, hidden) {
+        var context = canvas.node().getContext('2d'); // this will do the actual drawing
+
         // clear canvas
         context.clearRect(0, 0, width, height);
 
