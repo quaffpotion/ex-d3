@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <script src="http://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- A title -->
+    <h3>Coloured grids</h3>
+
+    <!-- An input field with a default value -->
+    <input type="text" id="text-input" value="5000" />
+
+    <!-- An explanation -->
+    <div id="text-explain">...takes numbers between 1 and 10k</div>
+
+    <!-- And a container for the canvas element -->
+    <div id="container"></div>
+
+    <script>
+      //Generate some data
+      var value = 50;
+      var data = [];
+
+      d3.range(value).forEach(function(el) {
+        data.push({ value: el });
+      });
+
+      //Setup the canvas where we will draw our boxes
+      var width = 750;
+      var height = 400;
+
+      var canvas = d3
+        .select('#container') //At the start, there will be no canvas element however,
+        .append('canvas') // here one will be appended
+        .attr('width', width)
+        .attr('height', height);
+
+      var context = canvas.node().getContext('2d'); // this will do the actual drawing
+
+      // Technical detail, this essentially placeholder element will be the parent
+      // of all our other elements.
+      var customBase = document.createElement('custom');
+      var custom = d3.select(customBase); // this is your SVG replacement and the parent of all other elements
+
+      // This is just math to setup our grid.
+      var groupSpacing = 4;
+      var cellSpacing = 2;
+      var offsetTop = height / 5;
+      var cellSize =
+        Math.floor((width - 11 * groupSpacing) / 100) - cellSpacing;
+
+      // === First call === //
+
+      databind(d3.range(value)); // When this is just `data` we get black boxes only
+      var t = d3.timer(function(elapsed) {
+        console.log('Running draw function...');
+        draw();
+        if (elapsed > 300) t.stop();
+      }); // start a timer that runs the draw function for 300 ms (or anything slightly higher than the transition time for our custom elements)
+      //seems to take at least two draws - if you set the timer to 1 ms then you only get 1 and there's nothing
+      //something to do with how transitions are calculated?
+
+      d3.select('#text-input').on('keydown', function() {
+        if (d3.event.keyCode === 13) {
+          // Only do something if the user hits return (keycode 13)
+
+          if (+this.value < 1 || +this.value > 10000) {
+            // if the user goes lower than 1 or higher than 10k
+
+            d3.select('#text-explain').classed('alert', true); // ... highlight the note about the range
+
+            return;
+          } else {
+            // if the user types in a sensible number
+
+            d3.select('#text-explain').classed('alert', false); // remove potential alert colours from the note
+
+            value = +this.value; // set the value
+
+            databind(d3.range(value)); // bind the data
+            var t = d3.timer(function(elapsed) {
+              console.log('Running draw function... due to user click');
+              draw();
+              if (elapsed > 300) t.stop();
+            }); // start a timer that runs the draw function for 300 ms (this needs to be higher than the transition in the databind function)
+          }
+        } // keyCode 13 === return
+      }); // text input listener/handler
+
+      //Step 1: Cast spell to bind data to elements.
+      function databind(data) {
+        // get a scale for the colours - not essential but nice
+        colourScale = d3.scaleSequential(d3.interpolateSpectral).domain(
+          d3.extent(data, function(d) {
+            return d;
+          })
+        );
+
+        //Bind data to rectangles that will exist soon.
+        var join = custom.selectAll('custom.rect').data(data);
+
+        var enterSel = join
+          .enter()
+          .append('custom')
+          .attr('class', 'rect')
+          .attr('x', function(d, i) {
+            var x0 = Math.floor(i / 100) % 10,
+              x1 = Math.floor(i % 10);
+            return (
+              groupSpacing * x0 + (cellSpacing + cellSize) * (x1 + x0 * 10)
+            );
+          })
+          .attr('y', function(d, i) {
+            var y0 = Math.floor(i / 1000),
+              y1 = Math.floor((i % 100) / 10);
+            return (
+              groupSpacing * y0 + (cellSpacing + cellSize) * (y1 + y0 * 10)
+            );
+          })
+          .attr('width', 0)
+          .attr('height', 0);
+
+        join
+          .merge(enterSel)
+          .transition()
+          .attr('width', cellSize)
+          .attr('height', cellSize)
+          .attr('fillStyle', function(d) {
+            //we use 'fillStyle' here because it matches a canvas property later but you could put any string here
+            return colourScale(d);
+          });
+
+        var exitSel = join
+          .exit()
+          .transition()
+          .attr('width', 0)
+          .attr('height', 0)
+          .remove();
+      } // end databind
+
+      function draw() {
+        // clear canvas
+        context.clearRect(0, 0, width, height);
+
+        // draw each individual custom element with their properties
+        var elements = custom.selectAll('custom.rect'); // this is the same as the join variable, but used here to draw
+
+        elements.each(function(d, i) {
+          var node = d3.select(this); // this is each individual element in the loop
+
+          context.fillStyle = node.attr('fillStyle'); // here you apply the colour
+
+          context.fillRect(
+            node.attr('x'),
+            node.attr('y'),
+            node.attr('width'),
+            node.attr('height')
+          ); // and here you draw the square
+        }); // loop through each element
+      }
+    </script>
+  </body>
+</html>
