@@ -24,8 +24,25 @@
     <div id="container"></div>
 
     <script>
+      var nextCol = 1;
+      var colorToNode = {};
+
+      function genColor() {
+        var ret = [];
+        // via http://stackoverflow.com/a/15804183
+        if (nextCol < 16777215) {
+          ret.push(nextCol & 0xff); // R
+          ret.push((nextCol & 0xff00) >> 8); // G
+          ret.push((nextCol & 0xff0000) >> 16); // B
+
+          nextCol += 10;
+        }
+        var col = 'rgb(' + ret.join(',') + ')';
+        return col;
+      }
+
       //Generate some data
-      var value = 50;
+      var value = 5000;
       var data = [];
 
       d3.range(value).forEach(function(el) {
@@ -40,9 +57,10 @@
         .select('#container') //At the start, there will be no canvas element however,
         .append('canvas') // here one will be appended
         .attr('width', width)
-        .attr('height', height);
+        .attr('height', height)
+        .classed('main-canvas', true);
 
-      var hiddencanvas = d3
+      var hiddenCanvas = d3
         .select('#container') //At the start, there will be no canvas element however,
         .append('canvas') // here one will be appended
         .attr('width', width)
@@ -66,11 +84,17 @@
       databind(d3.range(value)); // When this is just `data` we get black boxes only
       var t = d3.timer(function(elapsed) {
         console.log('Running draw function...');
-        draw(canvas);
+        draw(canvas, false);
         if (elapsed > 300) t.stop();
       }); // start a timer that runs the draw function for 300 ms (or anything slightly higher than the transition time for our custom elements)
       //seems to take at least two draws - if you set the timer to 1 ms then you only get 1 and there's nothing
       //something to do with how transitions are calculated?
+
+      d3.select('.main-canvas').on('mousemove', function() {
+        // draw the hiddenCanvas
+        console.log('Drawing the hidden canvas...');
+        draw(hiddenCanvas, true);
+      });
 
       d3.select('#text-input').on('keydown', function() {
         if (d3.event.keyCode === 13) {
@@ -92,7 +116,7 @@
             databind(d3.range(value)); // bind the data
             var t = d3.timer(function(elapsed) {
               console.log('Running draw function... due to user click');
-              draw(canvas);
+              draw(canvas, false);
               if (elapsed > 300) t.stop();
             }); // start a timer that runs the draw function for 300 ms (this needs to be higher than the transition in the databind function)
           }
@@ -140,7 +164,19 @@
           .attr('fillStyle', function(d) {
             //we use 'fillStyle' here because it matches a canvas property later but you could put any string here
             return colourScale(d);
-          });
+          })
+          .attr(
+            'fillStyleHidden',
+            // function(d) {
+            //   d.hiddenColor = genColor();
+            //   colorToNode[d.hiddenColor] = d;
+            //   console.log(d.hiddenColor);
+            //   return d.hiddenColor;
+            // }
+            function(d) {
+              return genColor();
+            }
+          );
 
         var exitSel = join
           .exit()
@@ -162,7 +198,11 @@
         elements.each(function(d, i) {
           var node = d3.select(this); // this is each individual element in the loop
 
-          context.fillStyle = node.attr('fillStyle'); // here you apply the colour
+          if (hidden) {
+            context.fillStyle = node.attr('fillStyleHidden');
+          } else {
+            context.fillStyle = node.attr('fillStyle');
+          }
 
           context.fillRect(
             node.attr('x'),
