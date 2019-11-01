@@ -1,32 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-
-    <script src="http://d3js.org/d3.v4.js"></script>
+    <meta charset="utf-8" />
+    <title>d3 and canvas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://d3js.org/d3.v4.js"></script>
     <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
 
-    <title>Document</title>
+    <style type="text/css">
+      body {
+        font-family: 'Open Sans', sans-serif;
+      }
+
+      canvas {
+        border: 1px dotted #ccc;
+      }
+
+      #text-explain {
+        display: inline-block;
+        font-size: 0.75em;
+        margin-bottom: 1em;
+      }
+
+      .alert {
+        color: tomato;
+      }
+
+      /* new (in comparison to code w/o interactivty at:) ---- */
+      /* (http://blockbuilder.org/larsvers/d187337850d58a444082841c739985ca) */
+
+      div#tooltip {
+        position: absolute;
+        display: inline-block;
+        padding: 10px;
+        font-family: 'Open Sans' sans-serif;
+        color: #000;
+        background-color: #fff;
+        border: 1px solid #999;
+        border-radius: 2px;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 1;
+      }
+
+      /* new ------------------------------------------------ */
+    </style>
   </head>
+
   <body>
-    <!-- A title -->
     <h3>Coloured grids</h3>
-
-    <!-- An input field with a default value -->
     <input type="text" id="text-input" value="5000" />
-
-    <!-- An explanation -->
     <div id="text-explain">...takes numbers between 1 and 10k</div>
-
-    <!-- And a container for the canvas element -->
     <div id="container"></div>
 
+    <div id="tooltip">hello</div>
+    <!-- new  -->
+
     <script>
+      var log = console.log.bind(console);
+      var dir = console.dir.bind(console);
+      var replace = function(string) {
+        return string.replace(/[^a-z0-9]/gi, '');
+      };
+
+      // === Set up canvas === //
+
+      var width = 750,
+        height = 400;
+
+      var data = [];
+      var value = 5000;
+      var colorScale;
+
+      var mainCanvas = d3
+        .select('#container')
+        .append('canvas')
+        .classed('mainCanvas', true)
+        .attr('width', width)
+        .attr('height', height);
+
+      // new -----------------------------------------------------
+
+      var hiddenCanvas = d3
+        .select('#container')
+        .append('canvas')
+        .classed('hiddenCanvas', true)
+        .attr('width', width)
+        .attr('height', height);
+
+      var colourToNode = {}; // map to track the colour of nodes
+
+      // function to create new colours for the picking
+
       var nextCol = 1;
-      var colorToNode = {};
-      var colourScale;
 
       function genColor() {
         var ret = [];
@@ -36,105 +102,49 @@
           ret.push((nextCol & 0xff00) >> 8); // G
           ret.push((nextCol & 0xff0000) >> 16); // B
 
-          nextCol += 10;
+          nextCol += 1;
         }
         var col = 'rgb(' + ret.join(',') + ')';
         return col;
       }
 
-      //Generate some data
-      var value = 50;
-      var data = [];
+      // new -----------------------------------------------------
+
+      // === Load and prepare the data === //
 
       d3.range(value).forEach(function(el) {
         data.push({ value: el });
       });
 
-      //Setup the canvas where we will draw our boxes
-      var width = 750;
-      var height = 400;
+      // === Bind data to custom elements === //
 
-      var canvas = d3
-        .select('#container') //At the start, there will be no canvas element however,
-        .append('canvas') // here one will be appended
-        .attr('width', width)
-        .attr('height', height)
-        .classed('main-canvas', true);
-
-      var hiddenCanvas = d3
-        .select('#container') //At the start, there will be no canvas element however,
-        .append('canvas') // here one will be appended
-        .attr('width', width)
-        .attr('height', height)
-        .classed('hidden-canvas', true);
-
-      // Technical detail, this essentially placeholder element will be the parent
-      // of all our other elements.
       var customBase = document.createElement('custom');
-      var custom = d3.select(customBase); // this is your SVG replacement and the parent of all other elements
+      var custom = d3.select(customBase); // this is our svg replacement
 
-      // This is just math to setup our grid.
+      // settings for a grid with 40 cells in a row and 2x5 cells in a group
       var groupSpacing = 4;
       var cellSpacing = 2;
-      var offsetTop = height / 5;
       var cellSize =
         Math.floor((width - 11 * groupSpacing) / 100) - cellSpacing;
 
       // === First call === //
 
-      // databind(d3.range(value)); // When this is just `data` we get black boxes only
-      databind(data);
+      databind(data); // ...then update the databind function
+
       var t = d3.timer(function(elapsed) {
-        console.log('Running draw function...');
-        draw(canvas, false);
+        draw(mainCanvas, false); // <--- new insert arguments
         if (elapsed > 300) t.stop();
-      }); // start a timer that runs the draw function for 300 ms (or anything slightly higher than the transition time for our custom elements)
-      //seems to take at least two draws - if you set the timer to 1 ms then you only get 1 and there's nothing
-      //something to do with how transitions are calculated?
+      }); // start a timer that runs the draw function for 300 ms (this needs to be higher than the transition in the databind function)
 
-      d3.select('.main-canvas').on('mousemove', function() {
-        // draw the hiddenCanvas
-        console.log('Drawing the hidden canvas...');
-        draw(hiddenCanvas, true);
-      });
+      // === Bind and draw functions === //
 
-      d3.select('#text-input').on('keydown', function() {
-        if (d3.event.keyCode === 13) {
-          d3.select('#alert').html('');
-
-          if (+this.value < 1 || +this.value > 10000) {
-            d3.select('#text-explain').classed('alert', true);
-
-            return;
-          } else {
-            d3.select('#text-explain').classed('alert', false);
-
-            data = [];
-
-            d3.range(+this.value).forEach(function(el) {
-              data.push({ value: el });
-            });
-
-            databind(data);
-
-            var t = d3.timer(function(elapsed) {
-              draw(canvas, false);
-              if (elapsed > 500) t.stop();
-            }); // start a timer that runs the draw function for 500 ms (this needs to be higher than the transition in the databind function)
-          } // value test
-        } // keyCode 13 === return
-      }); // text input listener/handler
-
-      //Step 1: Cast spell to bind data to elements.
       function databind(data) {
-        // get a scale for the colours - not essential but nice
-        colourScale = d3.scaleSequential(d3.interpolateSpectral).domain(
+        colorScale = d3.scaleSequential(d3.interpolateSpectral).domain(
           d3.extent(data, function(d) {
-            return d;
+            return d.value;
           })
         );
 
-        //Bind data to rectangles that will exist soon.
         var join = custom.selectAll('custom.rect').data(data);
 
         var enterSel = join
@@ -164,22 +174,21 @@
           .attr('width', cellSize)
           .attr('height', cellSize)
           .attr('fillStyle', function(d) {
-            //we use 'fillStyle' here because it matches a canvas property later but you could put any string here
-            return colourScale(d);
+            return colorScale(d.value);
           })
-          .attr(
-            'fillStyleHidden',
-            function(d) {
-              d['hiddenColor'] = genColor();
-              console.log(d);
-              colorToNode[d.hiddenColor] = d;
-              console.log(d.hiddenColor);
-              return d.hiddenColor;
-            }
-            // function(d) {
-            //   return genColor();
-            // }
-          );
+
+          // new -----------------------------------------------------
+
+          .attr('fillStyleHidden', function(d) {
+            if (!d.hiddenCol) {
+              d.hiddenCol = genColor();
+              colourToNode[d.hiddenCol] = d;
+            } // here we (1) add a unique colour as property to each element and (2) map the colour to the node in the colourToNode-dictionary
+
+            return d.hiddenCol;
+          });
+
+        // new -----------------------------------------------------
 
         var exitSel = join
           .exit()
@@ -187,34 +196,107 @@
           .attr('width', 0)
           .attr('height', 0)
           .remove();
-      } // end databind
+      } // databind()
+
+      // === Draw canvas === //
 
       function draw(canvas, hidden) {
-        var context = canvas.node().getContext('2d'); // this will do the actual drawing
+        // <---- new arguments
+
+        // build context
+        var context = canvas.node().getContext('2d');
 
         // clear canvas
         context.clearRect(0, 0, width, height);
 
         // draw each individual custom element with their properties
+
         var elements = custom.selectAll('custom.rect'); // this is the same as the join variable, but used here to draw
 
         elements.each(function(d, i) {
-          var node = d3.select(this); // this is each individual element in the loop
+          // for each virtual/custom element...
 
-          if (hidden) {
-            context.fillStyle = node.attr('fillStyleHidden');
-          } else {
-            context.fillStyle = node.attr('fillStyle');
-          }
+          var node = d3.select(this);
 
+          context.fillStyle = hidden
+            ? node.attr('fillStyleHidden')
+            : node.attr('fillStyle'); // <--- new: node colour depends on the canvas we draw
           context.fillRect(
             node.attr('x'),
             node.attr('y'),
             node.attr('width'),
             node.attr('height')
-          ); // and here you draw the square
-        }); // loop through each element
-      }
+          );
+        });
+      } // draw()
+
+      // === Listeners/handlers === //
+
+      d3.select('#text-input').on('keydown', function() {
+        if (d3.event.keyCode === 13) {
+          d3.select('#alert').html('');
+
+          if (+this.value < 1 || +this.value > 10000) {
+            d3.select('#text-explain').classed('alert', true);
+
+            return;
+          } else {
+            d3.select('#text-explain').classed('alert', false);
+
+            data = [];
+
+            d3.range(+this.value).forEach(function(el) {
+              data.push({ value: el });
+            });
+
+            databind(data);
+
+            var t = d3.timer(function(elapsed) {
+              draw(mainCanvas, false); // <--- new insert arguments
+              if (elapsed > 300) t.stop();
+            }); // start a timer that runs the draw function for 300 ms (this needs to be higher than the transition in the databind function)
+          } // value test
+        } // keyCode 13 === return
+      }); // text input listener/handler
+
+      // new -----------------------------------------------------
+
+      d3.select('.mainCanvas').on('mousemove', function() {
+        // draw the hiddenCanvas
+        draw(hiddenCanvas, true);
+
+        // get mousePositions from the main canvas
+        var mouseX = d3.event.layerX || d3.event.offsetX;
+        var mouseY = d3.event.layerY || d3.event.offsetY;
+
+        // get The Toolbox for the hidden canvas
+        var hiddenCtx = hiddenCanvas.node().getContext('2d');
+
+        // Now to pick the colours from where our mouse is then stringify it in a way our map-object can read it
+        var col = hiddenCtx.getImageData(mouseX, mouseY, 1, 1).data;
+        var colKey = 'rgb(' + col[0] + ',' + col[1] + ',' + col[2] + ')';
+
+        // get the data from our map !
+        var nodeData = colourToNode[colKey];
+
+        //log(nodeData);
+
+        if (nodeData) {
+          // Show the tooltip only when there is nodeData found by the mouse
+
+          d3.select('#tooltip')
+            .style('opacity', 0.8)
+            .style('top', d3.event.pageY + 5 + 'px')
+            .style('left', d3.event.pageX + 5 + 'px')
+            .html(nodeData.value);
+        } else {
+          // Hide the tooltip when there our mouse doesn't find nodeData
+
+          d3.select('#tooltip').style('opacity', 0);
+        }
+      }); // canvas listener/handler
+
+      // new -----------------------------------------------------
     </script>
   </body>
 </html>
